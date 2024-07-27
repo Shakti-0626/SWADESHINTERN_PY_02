@@ -1,0 +1,72 @@
+import requests
+from bs4 import BeautifulSoup
+import csv
+import time
+
+def fetch_page(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.text
+    else:
+        print(f"Failed to retrieve page with status code: {response.status_code}")
+        return None
+
+def parse_html(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    return soup
+
+def extract_data(soup):
+    data = []
+    # Example: Extracting article titles and links from a blog
+    articles = soup.find_all('article')
+    for article in articles:
+        try:
+            title = article.find('h2').get_text(strip=True)
+            link = article.find('a')['href']
+            data.append({'title': title, 'link': link})
+        except AttributeError as e:
+            print(f"Error extracting data from article: {e}")
+    return data
+
+def scrape_website(base_url, pages):
+    all_data = []
+    for page in range(1, pages + 1):
+        url = f"{base_url}?page={page}"
+        print(f"Fetching page: {url}")
+        html_content = fetch_page(url)
+        if html_content:
+            soup = parse_html(html_content)
+            data = extract_data(soup)
+            all_data.extend(data)
+        else:
+            print(f"Failed to retrieve page {page}")
+            break
+        time.sleep(1)  # Respectful delay between requests
+    return all_data
+
+def save_to_csv(data, filename):
+    if not data:
+        print("No data to save")
+        return
+
+    keys = data[0].keys()
+    with open(filename, 'w', newline='', encoding='utf-8') as output_file:
+        dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(data)
+    print(f"Data saved to {filename}")
+
+def main():
+    base_url = 'https://en.wikipedia.org/wiki/World_War_II'  # Change this to the target website URL
+    pages = 5  # Number of pages to scrape
+    data = scrape_website(base_url, pages)
+    if data:
+        save_to_csv(data, 'scraped_data.csv')
+    else:
+        print("No data found or unable to fetch pages.")
+
+if __name__ == '__main__':
+    main()
